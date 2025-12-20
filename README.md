@@ -33,7 +33,7 @@
 # What's new
 Want to learn about the new features in **version 2.0** and how to use the tool correctly?
 
-Check out the [**following article**]() and get the most out of the tool.
+Check out the [**following article**](https://m3n0sd0n4ld.github.io/patoHackventuras/GooFuzz_v2.0-release) and get the most out of the tool.
 
 # Prerequisites
 - **Bash/Zsh**: The main engine where the script runs.
@@ -513,7 +513,7 @@ https://www.nccs.nasa.gov/images/Intel_MPI_Reference_Manual.pdf
 
 Or even, search for a possible password in a pdf file:
 
-```
+```console
 > ./GooFuzz -t .com -c changeme -e pdf
 *********************************************************
 * GooFuzz v.2.00 - The Power of Google Dorks            *
