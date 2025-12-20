@@ -1,6 +1,6 @@
-FROM bash
+FROM bash:latest
 
-RUN apk update && apk add --no-cache curl git
+RUN apk update && apk add --no-cache curl git jq
 RUN ln -s /usr/local/bin/bash /bin/bash
 WORKDIR /opt/
 RUN git clone https://github.com/m3n0sd0n4ld/GooFuzz

@@ -30,66 +30,94 @@
 
 **GooFuzz** is a script written in *Bash Scripting* that uses advanced Google search techniques to obtain sensitive information in files or directories without making requests to the web server.
 
+# What's new
+Want to learn about the new features in **version 2.0** and how to use the tool correctly?
+
+Check out the [**following article**]() and get the most out of the tool.
+
+# Prerequisites
+- **Bash/Zsh**: The main engine where the script runs.
+- **curl**: Used to make HTTP requests to search engines.
+- **jq**: Required to process and filter responses in JSON format.
+- **sed**: Standard text processing tool in Unix systems.
+- **Google API and create a programmable search engine**: Required to add the `cxId` and `apikey` to a file. Both are free.
+
+#### Get your API Key
+1. Go to [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a **new project** (give it a name, such as `GooFuzz-Project`).
+3. In the search bar at the top, type "**Custom Search API**" and click the Enable button.
+4. Once enabled, go to the "**Credentials**" tab in the left-hand menu.
+5. Click on "**Create credentials**" -> "**API key**".
+6. Keep it safe! That's your `API key`.
+
+#### 2. Get your CX ID (Programmable Search Engine)
+1. Go to the [Programmable Search Engine](https://programmablesearchengine.google.com/) dashboard.
+2. Click “**Add**” to create a new search engine.
+3. In the “**What to search**” section, select “**Search the entire Web**” (this is vital so that **GooFuzz** is not limited to a single website).
+4. Give it a name (e.g., `GooFuzz-Search`) and click **Create**.
+5. Now go to the settings for the search engine you just created and look for “**Search engine ID**.”
+6. That alphanumeric code is your `cxId`.
+
 # Download and install:
-```
-$ git clone https://github.com/m3n0sd0n4ld/GooFuzz.git
-$ cd GooFuzz
-$ chmod +x GooFuzz
-$ ./GooFuzz -h
+```console
+git clone https://github.com/m3n0sd0n4ld/GooFuzz.git
+cd GooFuzz
+sudo apt install jq
+chmod +x GooFuzz
+./GooFuzz -h
 ```
 
 # Docker version:
-```
-$ git clone https://github.com/m3n0sd0n4ld/GooFuzz
-$ cd GooFuzz
-$ docker build -t goofuzz .
-$ docker run --rm -it goofuzz -h
+```console
+git clone https://github.com/m3n0sd0n4ld/GooFuzz.git
+cd GooFuzz
+docker build -t goofuzz .
+docker run --rm -it goofuzz -h
 ```
 
 # Use:
 
 ## Menu
 
-```
+```console
 > ./GooFuzz -h
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *                                                       *
 * David Utón (@David_Uton)                              *
 *********************************************************
 
 Usage:
-        -h                                Display this help message.
-        -w <DICTIONARY>        Specify a DICTIONARY, PATHS or FILES.
-        -e <EXTENSION>           Specify comma-separated extensions.
-        -t <TARGET>                  Specify a DOMAIN or IP Address.
-        -p <PAGES>                      Specify the number of PAGES.
-        -x <EXCLUSIONS>                EXCLUDES targets in searches.
-        -d <DELAY>                Delay in seconds between requests.
-        -s                 Lists subdomains of the specified domain.
-        -c <TEXT> Specify relevant content in comma-separated files.
-        -o <FILENAME>   Export the results to a file (results only).
-        -r <PROXY>        Specify an [protocol://]host[:port] proxy.
-           
+    -h                        Display this help message.
+    -k <FILE>                 Specify a FILE with CX_ID,API_KEY pairs, one per line.
+    -w <DICTIONARY>           Specify a DICTIONARY, PATHS or FILES.
+    -e <EXTENSION>            Specify comma-separated extensions.
+    -t <TARGET>               Specify a DOMAIN or IP Address.
+    -p <PAGES>                Specify the number of PAGES (Default: 1).
+    -x <EXCLUSIONS>           EXCLUDES targets (comma-separated or file).
+    -d <DELAY>                Delay in seconds between requests.
+    -s                        Lists subdomains of the specified domain.
+    -c <TEXT>                 Specify relevant content (comma-separated or file).
+    -o <FILENAME>             Export the results to a file (results only).
+    -r <PROXY>                Specify an [protocol://]host[:port] proxy.
+
 Examples:
-        GooFuzz -t site.com -e pdf,doc,bak
-        GooFuzz -t site.com -e pdf -p 2
-        GooFuzz -t www.site.com -e extensionslist.txt
-        GooFuzz -t www.site.com -w config.php,admin,/images/
-        GooFuzz -t site.com -w wp-admin -p 1
-        GooFuzz -t site.com -w wordlist.txt
-        GooFuzz -t site.com -w login.html -x dev.site.com
-        GooFuzz -t site.com -w admin.html -x exclusion_list.txt
-        GooFuzz -t site.com -s -p 10 -d 5 -o GooFuzz-subdomains.txt
-        GooFuzz -t site.com -c P@ssw0rd!
-        GooFuzz -t site.com -r http://proxy.example.com:8080
+    GooFuzz -t site.com -k keys_file.txt -e pdf,doc,bak
+    GooFuzz -t site.com -k keys_file.txt -s -p 10 -d 5 -o GooFuzz-subdomains.txt
+    GooFuzz -t site.com -k keys_file.txt -w config.php,admin,/images/
+    GooFuzz -t site.com -k keys_file.txt -w wordlist.txt
+    GooFuzz -t site.com -k keys_file.txt -w login.html -x dev.site.com
+    GooFuzz -t site.com -k keys_file.txt -w admin.html -x exclusion_list.txt
+    GooFuzz -t site.com -k keys_file.txt -c P@ssw0rd!
+    GooFuzz -t site.com -k keys_file.txt -e pdf -r http://proxy.example.com:8080
 ```
 
 ## Lists files by extensions separated by commas.
-```
-> ./GooFuzz -t nasa.gov -e pdf,bak,old -d 10
+```console
+> ./GooFuzz -t nasa.gov -e pdf,doc,docx,txt,xls,zip -p 3 -k apikey.lst -o extensions.txt
+
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *********************************************************
 
 Target: nasa.gov
@@ -97,56 +125,76 @@ Target: nasa.gov
 ===================================================================
 Extension: pdf
 ===================================================================
-
-https://history.nasa.gov/alsj/a11/A11_PressKit.pdf
-https://history.nasa.gov/alsj/a13/A13_PressKit.pdf
-https://history.nasa.gov/alsj/a14/A14_PressKit.pdf
-https://history.nasa.gov/alsj/a15/A15_PressKit.pdf
-https://history.nasa.gov/alsj/a410/A07_PressKit.pdf
-https://history.nasa.gov/alsj/a410/A09_PressKit.pdf
-https://history.nasa.gov/monograph15.pdf
-https://www.hq.nasa.gov/alsj/LLRV_Monograph.pdf
+https://above.nasa.gov/pdfs/20171020_ASC_Webinar.pdf
+https://above.nasa.gov/safety/documents/Bear/bear_ID_brochure_BC.pdf
+https://carbon.nasa.gov/pdfs/CMSAVtelecon_20150401_McKainSargent.pdf
+https://fun3d.larc.nasa.gov/papers/LowPrecisionSolver.pdf
+https://go.nasa.gov/385anj3
+https://go.nasa.gov/42QfgGH
+https://human-factors.arc.nasa.gov/publications/wenzel_1993_Localization_Head_Related.pdf
+https://humansystems.arc.nasa.gov/publications/Barshi_Procedure_Checklist_Design_NASA_TM_2016.pdf
+https://mars.nasa.gov/internal_resources/1489/
+https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430_and_de431.pdf
+https://nodis3.gsfc.nasa.gov/OPD_Docs/NAII_2800_2_.pdf
+https://oig.nasa.gov/docs/IG-15-013.pdf
+https://oig.nasa.gov/docs/IG-17-016.pdf
+https://oig.nasa.gov/docs/IG-18-016.pdf
+https://oig.nasa.gov/docs/IG-18-021.pdf
+https://oig.nasa.gov/docs/IG-19-022.pdf
+https://orbitaldebris.jsc.nasa.gov/library/usg_orbital_debris_mitigation_standard_practices_november_2019.pdf
+https://s3vi.ndc.nasa.gov/ssri-kb/static/resources/529x0g1.pdf
+https://sealevel.nasa.gov/internal_resources/535/Suva_Fiji_combined.pdf
+https://smap.jpl.nasa.gov/files/smap2/SMAP_Handbook_FINAL_1_JULY_2014_Web.pdf
+https://spacemath.gsfc.nasa.gov/moon/5Page28.pdf
+https://spacemath.gsfc.nasa.gov/stars/5Page44.pdf
+https://spacemath.gsfc.nasa.gov/stars/6Page106.pdf
+https://spacemath.gsfc.nasa.gov/weekly/10Page55.pdf
+https://spacemath.gsfc.nasa.gov/weekly/6Page89.pdf
+https://spaceradiation.larc.nasa.gov/nasapapers/RP1257.pdf
+https://spinoff.nasa.gov/back_issues_archives/1985.pdf
+https://swift.gsfc.nasa.gov/analysis/xrt_swguide_v1_2.pdf
+https://tmo.jpl.nasa.gov/progress_report2/42-44/44N.PDF
+https://wind.nasa.gov/docs/MFI_Lepping_SSR1995.pdf
 
 ===================================================================
-Extension: bak
+Extension: doc
 ===================================================================
-
-https://bocachica.arc.nasa.gov/ATTREX_2013/rh/rh_omega_oct3.html.bak
-https://bocachica.arc.nasa.gov/ATTREX_2013/rh/rh_omega_sep30.html.bak
-https://bocachica.arc.nasa.gov/ATTREX_2014/attrex2014_satmap.html.bak
-https://bocachica.arc.nasa.gov/ATTREX_2014/schom/schomfigures_20140126.html.bak
-https://bocachica.arc.nasa.gov/ATTREX_2014/schom/schomfigures_20140226.html.bak
-https://bocachica.arc.nasa.gov/ATTREX_2014/trajfigures/trajfigures.html.bak
-https://bocachica.arc.nasa.gov/POSIDON/posidon.html.bak
-https://hesperia.gsfc.nasa.gov/hessi/solar_install/installation.bak
-https://ndeaa.jpl.nasa.gov/nasa-nde/outreach/outreach.html.bak
-https://ndeaa.jpl.nasa.gov/nasa-nde/yosi/yosi.htm.bak
+https://acquisition.jpl.nasa.gov/download/terms-conditions/solicitation-group-a/A16-0359.doc
+https://acquisition.jpl.nasa.gov/download/terms-conditions/solicitation-group-b/B13-2703.doc
+https://acquisition.jpl.nasa.gov/download/terms-conditions/solicitation-group-b/B1-62-301.doc
+https://acquisition.jpl.nasa.gov/download/terms-conditions/solicitation-group-b/B7-2891.doc
+https://acquisition.jpl.nasa.gov/download/terms-conditions/supporting-documents/1047-NC.doc
+https://acquisition.jpl.nasa.gov/download/terms-conditions/supporting-documents/JPL-Form-7112.doc
+https://invention.nasa.gov/assets/downloads/nf1679.doc
 
 ===================================================================
-Extension: old
+Extension: docx
 ===================================================================
+https://exoplanets.nasa.gov/internal_resources/1914/
 
-https://bocachica.arc.nasa.gov/HAVE/nmc_rh_omega_plots.html.old
-https://echo.jpl.nasa.gov/asteroids/1988TA/1988TA_planning.html.old
-https://echo.jpl.nasa.gov/asteroids/1998QE2/1998QE2_planning.html.old
-https://echo.jpl.nasa.gov/asteroids/2014JO25/2014JO25_planning.html.old
-https://echo.jpl.nasa.gov/asteroids/goldstone_asteroid_schedule.html.old
-https://fits.gsfc.nasa.gov/users_guide/users_guide.ps.old
-https://image.msfc.nasa.gov/ChrisDocs/UDFInstall/uLibInstall.old
-https://seawifs.gsfc.nasa.gov/OCEAN_PLANET/HTML/titanic.html.old
-https://umbra.nascom.nasa.gov/soho/hga_history.html.old
-https://www.nasa.gov/index.html.old
+===================================================================
+Extension: txt
+===================================================================
+https://nrt3.modaps.eosdis.nasa.gov/archive/FIRMS/modis-c6.1/Canada/MODIS_C6_1_Canada_MCD14DL_NRT_2025329.txt
+https://nrt3.modaps.eosdis.nasa.gov/archive/FIRMS/modis-c6.1/USA_contiguous_and_Hawaii/MODIS_C6_1_USA_contiguous_and_Hawaii_MCD14DL_NRT_2025314.txt
+https://nrt3.modaps.eosdis.nasa.gov/archive/FIRMS/suomi-npp-viirs-c2/Northern_and_Central_Africa/SUOMI_VIIRS_C2_Northern_and_Central_Africa_VNP14IMGTDL_NRT_2025193.txt
+https://www3.nasa.gov/robots.txt
+
+===================================================================
+Extension: xls
+===================================================================
+https://carbon.nasa.gov/files/tempfiles/cms_short_products_excel.xls
 ```
 
 ## Lists files by extensions contained in a txt file.
-```
-> ./GooFuzz -t nasa.gov -e wordlists/extensions.txt -d 30
+```console
+> ./GooFuzz -t nasa.gov -e wordlists/extensions.txt -k apikey.lst -o extensions.txt
+
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *********************************************************
 
 Target: nasa.gov
-Total requests: 4
 
 ===================================================================
 Extension: pdf
@@ -204,10 +252,11 @@ https://www.nasa.gov/378571main_0728NASAMeeting.txt
 https://www.nasa.gov/382774main_081209_DC_Transcript.txt
 ```
 ## List files, directories and even parameters by means of a wordlist (it is recommended to use only very small files).
-```
-./GooFuzz -t nasa.gov -w wordlists/words-100.txt -p 3
+```console
+> ./GooFuzz -t nasa.gov -e wordlists/words-100.txt -k apikey.lst -p 1
+
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *********************************************************
 
 Target: nasa.gov
@@ -252,41 +301,56 @@ https://uavsar.jpl.nasa.gov/cgi-bin/data.pl?search=9G023
 ```
 
 ## Lists directories and files by specifying paths, words or file names.
-```
-> ./GooFuzz -t nasa.gov -w /login/,password,db.html -p 3
+```console
+> ./GooFuzz -t nasa.gov -w adm,/login/,password,db.html -p 3 -k apikey.lst 
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *********************************************************
 
 Target: nasa.gov
 
 ===================================================================
-Directories and files found from: /login/,password,db.html
+Directories and files found: adm,/login/,password,db.html
 ===================================================================
-
-https://femci.gsfc.nasa.gov/random/dB.html
-https://heasarc.gsfc.nasa.gov/ark/forgot/password.html
-https://osdr.nasa.gov/bio/submission-sso-login.html
-https://osdr.nasa.gov/bio/workspace-sso-login.html
-https://pubs.giss.nasa.gov/authors/db.html
-https://wwwastro.msfc.nasa.gov/qdp/lextrct/db.html
-https://www-mipl.jpl.nasa.gov/vicar/core460/html/javadoc/index.html?jpl/mipl/jujube/servlet/Login.html
-https://www-mipl.jpl.nasa.gov/vicar/core460/html/javadoc/index.html?jpl/mipl/mdms/FileService/komodo/services/query/server/Login.html
-https://www-mipl.jpl.nasa.gov/vicar/core460/html/javadoc/jpl/mipl/mdms/FileService/komodo/services/query/server/Login.html
-https://www-mipl.jpl.nasa.gov/vicar/core470/html/javadoc/index.html?jpl/mipl/jujube/servlet/Login.html
-https://www-mipl.jpl.nasa.gov/vicar/core470/html/javadoc/index.html?jpl/mipl/mdms/FileService/komodo/services/query/server/Login.html
-https://www-mipl.jpl.nasa.gov/vicar/core470/html/javadoc/jpl/mipl/jujube/servlet/Login.html
-https://www-mipl.jpl.nasa.gov/vicar/core470/html/javadoc/jpl/mipl/mdms/FileService/komodo/services/query/server/Login.html
+https://ahed.nasa.gov/login
+https://airbornescience.nasa.gov/espo-auth/ajax-login
+https://c3.ndc.nasa.gov/dashlink/auth/login/
+https://ceres-tool.larc.nasa.gov/ord-tool/jsp/Password.jsp
+https://dir.jpl.nasa.gov/PIV%20Smartcard%20Login%20for%20NASA%20Web%20Applications.pdf
+https://dir.jpl.nasa.gov/projects/Login.jsp
+https://gcn.nasa.gov/login
+https://gipoc.grc.nasa.gov/pbre/log/login.html
+https://guest.nasa.gov/forgot-password
+https://montepy.jpl.nasa.gov/login
+https://my.nasa.gov/s/login/?
+https://oltaris.nasa.gov/password/new
+https://software.nasa.gov/login
+https://sso1.jpl.nasa.gov/cgi-bin/session/login.cgi
+https://stemgateway.nasa.gov/login
+https://stemgateway.nasa.gov/public/s/login
+https://stemgateway.nasa.gov/public/s/login/SelfRegister
+https://subset.larc.nasa.gov/calipso/login.php
+https://uavsar.jpl.nasa.gov/cgi-bin/airborne-login.pl
+https://urs.earthdata.nasa.gov/login
+https://www.earthdata.nasa.gov/data/earthdata-login
+https://www.earthdata.nasa.gov/data/earthdata-login/guidance
+https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/earthdata-login-api
+https://www.earthdata.nasa.gov/learn/tutorials/access-nasa-earth-science-data-earthdata-login
+https://www.jpl.nasa.gov/site/NSET/accounts/login/
+https://www.nas.nasa.gov/hecc/support/kb/common-login-failures-or-issues_162.html
+https://www.nas.nasa.gov/hecc/support/kb/i-cant-log-inmy-password-is-not-workingmy-account-is-locked_5.html
+https://www.nas.nasa.gov/hecc/support/kb/password-creation-rules_270.html
+https://www.nccs.nasa.gov/nccs-users/Login-Bastions-Change
 ```
   
 ## Exclusion of subdomains in your searches (separated by commas or by a list)
 ### Example 1:
-In this example we remove the subdomain "*wiki.earthdata.nasa.gov*" from the search.
+In this example we remove the subdomain "*www.earthdata.nasa.gov*" from the search.
 
-```
-> ./GooFuzz -t nasa.gov -w login -p 1
+```console
+> ./GooFuzz -t nasa.gov -w login -p 1 -k apikey.lst 
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *********************************************************
 
 Target: nasa.gov
@@ -294,74 +358,48 @@ Target: nasa.gov
 ===================================================================
 Directories and files found from: login
 ===================================================================
-
-https://daac.gsfc.nasa.gov/login
-https://disc.gsfc.nasa.gov/earthdata-login
-https://disc.gsfc.nasa.gov/images/login1.png
-https://disc.gsfc.nasa.gov/images/login4.png
-https://disc.gsfc.nasa.gov/images/login5.png
-https://disc.gsfc.nasa.gov/images/login6.png
-https://invention.nasa.gov/prog/login
-https://kauai.ccmc.gsfc.nasa.gov/DONKI/login
-https://ladsweb.modaps.eosdis.nasa.gov/oauth/login
+https://firms.modaps.eosdis.nasa.gov/oauth/login?redirect=/api/auth/login/alerts/ed/
+https://my.nasa.gov/s/login/?
 https://software.nasa.gov/login
-https://stemgateway.nasa.gov/public/s/login/
-https://technology.nasa.gov/login
-https://wiki.earthdata.nasa.gov/display/EL/How
-https://wiki.earthdata.nasa.gov/download/attachments/109874707/home _register.png?version
-https://wiki.earthdata.nasa.gov/download/attachments/109874707/registration2.png?version
-https://wiki.earthdata.nasa.gov/login.action
-https://www.earthdata.nasa.gov/eosdis/science-system-description/eosdis-components/earthdata-login
-https://www.earthdata.nasa.gov/sites/default/files/imported/EDL_1.jpg
-https://www.earthdata.nasa.gov/sites/default/files/imported/EDL_2.jpg
-https://www.earthdata.nasa.gov/sites/default/files/imported/EDL_4.jpg
-https://www.earthdata.nasa.gov/sites/default/files/imported/EDL_5.jpg
+https://sso1.jpl.nasa.gov/cgi-bin/session/login.cgi
+https://stemgateway.nasa.gov/public/s/login
+https://urs.earthdata.nasa.gov/login
+https://www.earthdata.nasa.gov/data/earthdata-login
+https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/earthdata-login-api
+https://www.jpl.nasa.gov/site/NSET/accounts/login/                                                                                                                                         
+> ./GooFuzz -t nasa.gov -w login -p 1 -x www.earthdata.nasa.gov -k apikey.lst 
+*********************************************************
+* GooFuzz v.2.00 - The Power of Google Dorks            *
+*********************************************************
+
+Target: nasa.gov
+
+===================================================================
+Directories and files found from: login
+===================================================================
+https://ahed.nasa.gov/login
+https://firms.modaps.eosdis.nasa.gov/oauth/login?redirect=/api/auth/login/alerts/ed/
+https://my.nasa.gov/s/login/?
+https://software.nasa.gov/login
+https://sso1.jpl.nasa.gov/cgi-bin/session/login.cgi
+https://stemgateway.nasa.gov/public/s/login
+https://subset.larc.nasa.gov/calipso/login.php
+https://urs.earthdata.nasa.gov/login
 https://www.jpl.nasa.gov/site/NSET/accounts/login/
-                                                                                                                                         
-> ./GooFuzz -t nasa.gov -w login -p 1 -x wiki.earthdata.nasa.gov
-*********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
-*********************************************************
-
-Target: nasa.gov
-
-===================================================================
-Directories and files found from: login
-===================================================================
-
-https://daac.gsfc.nasa.gov/login
-https://disc.gsfc.nasa.gov/earthdata-login
-https://disc.gsfc.nasa.gov/images/login1.png
-https://disc.gsfc.nasa.gov/images/login4.png
-https://disc.gsfc.nasa.gov/images/login5.png
-https://disc.gsfc.nasa.gov/images/login6.png
-https://invention.nasa.gov/assets/images/banner-meatball.png
-https://invention.nasa.gov/prog/login
-https://ladsweb.modaps.eosdis.nasa.gov/login
-https://ladsweb.modaps.eosdis.nasa.gov/oauth/login
-https://software.nasa.gov/login
-https://stemgateway.nasa.gov/public/s/login/
-https://technology.nasa.gov/login
-https://www.earthdata.nasa.gov/eosdis/science-system-description/eosdis-components/earthdata-login
-https://www.earthdata.nasa.gov/sites/default/files/imported/EDL_1.jpg
-https://www.earthdata.nasa.gov/sites/default/files/imported/EDL_2.jpg
-https://www.earthdata.nasa.gov/sites/default/files/imported/EDL_3.jpg
-https://www.earthdata.nasa.gov/sites/default/files/imported/EDL_4.jpg
-https://www.earthdata.nasa.gov/sites/default/files/imported/EDL_5.jpg
 ```
 
 ### Example 2:
 Using the previous example, we create a file called "*exclusion_list.txt*" and insert the three subdomains to exclude, we perform the same search again, but passing the list of excluded targets.
   
-```
+```console
 > cat exclusion-list.txt
 daac.gsfc.nasa.gov
 invention.nasa.gov
 software.nasa.gov
-                                                                                                                                         
-> ./GooFuzz -t nasa.gov -w login -p 1 -x exclusion-list.txt
+                                                                                                                                    
+> ./GooFuzz -t nasa.gov -w login -p 1 -x exclusion-list.txt -k apikey.lst 
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *********************************************************
 
 Target: nasa.gov
@@ -386,10 +424,10 @@ https://www.sewp.nasa.gov/qrt/security/login.sa
 ## Subdomains enumeration
 The functionality to list subdomains (parameter "*-s*") and in conjunction with a number of between 10 and 20 pages (parameter "*-p*"), it is possible to obtain a large number of subdomains of the organization.
 
-```
-> ./GooFuzz -t nasa.gov -s -p 20
+```console
+> ./GooFuzz -t nasa.gov -s -p 10 -k apikey.lst 
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *********************************************************
 
 Target: nasa.gov
@@ -397,66 +435,48 @@ Target: nasa.gov
 ===================================================================
 Subdomains found:
 ===================================================================
-
-http://go.nasa.gov
-https://aeronet.gsfc.nasa.gov
-https://airs.jpl.nasa.gov
-https://api.nasa.gov
-https://apod.nasa.gov
-https://appel.nasa.gov
-https://ares.jsc.nasa.gov
-https://asterweb.jpl.nasa.gov
-https://astrobiology.nasa.gov
-https://blogs.nasa.gov
-https://ceres.larc.nasa.gov
-https://climatekids.nasa.gov
-https://climate.nasa.gov
-https://cneos.jpl.nasa.gov
-https://data.nasa.gov
-https://earthobservatory.nasa.gov
-https://europa.nasa.gov
-https://exoplanets.nasa.gov
-https://eyes.nasa.gov
-https://firms.modaps.eosdis.nasa.gov
-https://go.nasa.gov
-https://imagine.gsfc.nasa.gov
-https://intern.nasa.gov
-https://lambda.gsfc.nasa.gov
-https://mars.nasa.gov
-https://missionstem.nasa.gov
-https://mms.gsfc.nasa.gov
-https://modis.gsfc.nasa.gov
-https://ntrs.nasa.gov
-https://power.larc.nasa.gov
-https://science.gsfc.nasa.gov
-https://science.nasa.gov
-https://sdo.gsfc.nasa.gov
-https://search.earthdata.nasa.gov
-https://smap.jpl.nasa.gov
-https://software.nasa.gov
-https://solarsystem.nasa.gov
-https://spaceplace.nasa.gov
-https://spotthestation.nasa.gov
-https://swot.jpl.nasa.gov
-https://terra.nasa.gov
-https://webb.nasa.gov
-https://worldview.earthdata.nasa.gov
-https://worldwind.arc.nasa.gov
-https://www1.grc.nasa.gov
-https://www.earthdata.nasa.gov
-https://www.giss.nasa.gov
-https://www.jpl.nasa.gov
-https://www.sewp.nasa.gov
-https://www.sti.nasa.gov
+above.nasa.gov
+aeronet.gsfc.nasa.gov
+appeears.earthdatacloud.nasa.gov
+ares.jsc.nasa.gov
+asterweb.jpl.nasa.gov
+astrobiology.nasa.gov
+esto.nasa.gov
+explorers.gsfc.nasa.gov
+eyes.nasa.gov
+firms.modaps.eosdis.nasa.gov
+go.nasa.gov
+homeandcity.nasa.gov
+imagine.gsfc.nasa.gov
+lambda.gsfc.nasa.gov
+oig.nasa.gov
+plus.nasa.gov
+science.nasa.gov
+sdo.gsfc.nasa.gov
+sealevel.nasa.gov
+soma.larc.nasa.gov
+space.jpl.nasa.gov
+spacemath.gsfc.nasa.gov
+spaceplace.nasa.gov
+svs.gsfc.nasa.gov
+swot.jpl.nasa.gov
+technology.nasa.gov
+terra.nasa.gov
+worldwind.arc.nasa.gov
+wvs.earthdata.nasa.gov
+www.csbf.nasa.gov
+www.earthdata.nasa.gov
+www.jpl.nasa.gov
+www.sewp.nasa.gov
 ```
 
 ## Files found containing enumeration
 The functionality to list files by their content (parameter "*-c*"), is very useful to identify relevant files (e.g. containing the word "*password*"), even if the word is in an image file (e.g. *.png*).
 
-```
-> ./GooFuzz -t nasa.gov -c password
+```console
+> ./GooFuzz -t nasa.gov -c password -k apikey.lst
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *********************************************************
 
 Target: nasa.gov
@@ -496,7 +516,7 @@ Or even, search for a possible password in a pdf file:
 ```
 > ./GooFuzz -t .com -c changeme -e pdf
 *********************************************************
-* GooFuzz 1.2.2 - The Power of Google Dorks             *
+* GooFuzz v.2.00 - The Power of Google Dorks            *
 *********************************************************
 
 Target: .com
@@ -521,11 +541,11 @@ https://www.delltechnologies.com/content/dam/digitalassets/active/en/unauth/tech
 ![Screenshot](images/goofuzz-contents.png)
     
 # Disclaimer
-- I am not responsible for the misuse of the tool.
-- Google Search has mechanisms to prevent abusive use or detection of suspicious activity. If at any time the tool does not show results, Google has temporarily blocked you (e.g. Captcha).
-- All the information obtained is public and through Google results. 
-- Logically, the searches are in Google, so it leaves no evidence in the logs of the target's server.
-- And very important, if you see a file, directory, subdomain, etc... Indexed in Google, does not mean that it still exists on the server (or it does ;)).
+- I am **not responsible** for any misuse of this tool.
+- I am **not responsible** if Google blocks your account for abuse of its API.
+- **All information obtained is public** and comes from Google results. 
+- Logically, searches are performed on Google, so they leave **no trace in the target server's logs**.
+- And very importantly, if you see a file, directory, subdomain, etc. indexed on Google, i**t does not mean that it still exists on the server** (or it does ;)).
 
 # Useful?
 If you like the tool, find it useful in your work, Bug Bounty or as a hobby, you could help me like this:

@@ -1,511 +1,701 @@
 #!/usr/bin/env bash
 
-# Variables
-## General
-url="https://www.google.com/search?q="
-filter="&filter=0"
+# Global variables
+url="https://www.googleapis.com/customsearch/v1"
 start="&start="
-userAgent="Mozilla/5.0 (PLAYSTATION 3; 1.00)"
-version="1.2.6"
+userAgent="GooFuzz/$version"
+version="2.00"
+
+## Used to store the dork
+optimizedDork=""
+
+## API Keys Management
+apiKey=""
+cxId=""
+# Arrays for storing CX ID and API Key pairs
+allApiKeys=()
+allCxIds=()
+keyIndex=0
 
 ## Effects
-cBold="\e[1m"
-cNormal="\e[0m"
+colorBold="\e[1m"
+colorNormal="\e[0m"
 
 # Functions
-## Usage
+## Dependency check
+function checkDependencies() {
+    if ! command -v jq &> /dev/null; then
+        echo -e "${colorBold}[!]${colorNormal} Error: The 'jq' tool is not installed."
+        printf "Please install it (e.g., sudo apt install jq).\n"
+        exit 1
+    fi
+}
+
+## Load API Keys
+function loadKeys() {
+    local input="$1"
+    
+    if [ -f "$input" ]; then
+        local line
+        while IFS=',' read -r cx key; do
+            cx=$(echo "$cx" | xargs)
+            key=$(echo "$key" | xargs)
+
+            if [ -n "$cx" ] && [ -n "$key" ]; then
+                allCxIds+=("$cx")
+                allApiKeys+=("$key")
+            fi
+        done < "$input"
+    else
+        if [[ "$input" =~ "," ]]; then
+            IFS=',' read -r cx key <<< "$input"
+            cxId=$(echo "$cx" | xargs)
+            keylistInput=$(echo "$key" | xargs)
+        fi
+        
+        if [ -z "$cxId" ] && [ -n "$keylistInput" ] && [ -n "$cxIdSingle" ]; then
+            allCxIds+=("$cxIdSingle")
+            allApiKeys+=("$keylistInput")
+        elif [ -z "$cxId" ] && [ -n "$cx" ] && [ -n "$key" ]; then
+             allCxIds+=("$cx")
+             allApiKeys+=("$key")
+        fi
+    fi
+
+    if [ ${#allApiKeys[@]} -gt 0 ]; then
+        apiKey="${allApiKeys[0]}"
+        cxId="${allCxIds[0]}"
+    else
+        echo -e "${colorBold}[!]${colorNormal} Error: No valid CX ID or API Key pairs found."
+        exit 1
+    fi
+}
+
+## Get Next API Key
+function getNextKey() {
+    keyIndex=$((keyIndex + 1))
+
+    if [ $keyIndex -lt ${#allApiKeys[@]} ]; then
+        apiKey="${allApiKeys[$keyIndex]}"
+        cxId="${allCxIds[$keyIndex]}"
+        echo -e "${colorBold}[!]${colorNormal} API Key exhausted. Rotating to pair #${keyIndex} (CX: $cxId)..."
+        return 0
+    else
+        return 1
+    fi
+}
+
+## Usage (MODIFICADA)
 function usage {
-       echo -e "\nUsage:
-	-h                                Display this help message.
-	-w <DICTIONARY>        Specify a DICTIONARY, PATHS or FILES.
-	-e <EXTENSION>           Specify comma-separated extensions.
-	-t <TARGET>                  Specify a DOMAIN or IP Address.
-	-p <PAGES>                      Specify the number of PAGES.
-	-x <EXCLUSIONS>                EXCLUDES targets in searches.
-	-d <DELAY>                Delay in seconds between requests.
-	-s                 Lists subdomains of the specified domain.
-	-c <TEXT> Specify relevant content in comma-separated files.
-	-o <FILENAME>   Export the results to a file (results only).
-	-r <PROXY>        Specify an [protocol://]host[:port] proxy.
-	   
-Examples:
-   	GooFuzz -t site.com -e pdf,doc,bak
-	GooFuzz -t site.com -e pdf -p 2
-	GooFuzz -t www.site.com -e extensionslist.txt
-	GooFuzz -t www.site.com -w config.php,admin,/images/
-	GooFuzz -t site.com -w wp-admin -p 1
-	GooFuzz -t site.com -w wordlist.txt
-	GooFuzz -t site.com -w login.html -x dev.site.com
-	GooFuzz -t site.com -w admin.html -x exclusion_list.txt
-	GooFuzz -t site.com -s -p 10 -d 5 -o GooFuzz-subdomains.txt
-	GooFuzz -t site.com -c P@ssw0rd!
-	GooFuzz -t site.com -r http://proxy.example.com:8080"
-       exit 0
+    printf "\nUsage:\n"
+    printf "    -h                        Display this help message.\n"
+    printf "    -k <FILE>                 Specify a FILE with CX_ID,API_KEY pairs, one per line.\n"
+    printf "    -w <DICTIONARY>           Specify a DICTIONARY, PATHS or FILES.\n"
+    printf "    -e <EXTENSION>            Specify comma-separated extensions.\n"
+    printf "    -t <TARGET>               Specify a DOMAIN or IP Address.\n"
+    printf "    -p <PAGES>                Specify the number of PAGES (Default: 1).\n"
+    printf "    -x <EXCLUSIONS>           EXCLUDES targets (comma-separated or file).\n"
+    printf "    -d <DELAY>                Delay in seconds between requests.\n"
+    printf "    -s                        Lists subdomains of the specified domain.\n"
+    printf "    -c <TEXT>                 Specify relevant content (comma-separated or file).\n"
+    printf "    -o <FILENAME>             Export the results to a file (results only).\n"
+    printf "    -r <PROXY>                Specify an [protocol://]host[:port] proxy.\n"
+    printf "\n"
+    printf "Examples:\n"
+    printf "    GooFuzz -t site.com -k keys_file.txt -e pdf,doc,bak\n"
+    printf "    GooFuzz -t site.com -k keys_file.txt -s -p 10 -d 5 -o GooFuzz-subdomains.txt\n"
+    printf "    GooFuzz -t site.com -k keys_file.txt -w config.php,admin,/images/\n"
+    printf "    GooFuzz -t site.com -k keys_file.txt -w wordlist.txt\n"
+    printf "    GooFuzz -t site.com -k keys_file.txt -w login.html -x dev.site.com\n"   
+    printf "    GooFuzz -t site.com -k keys_file.txt -w admin.html -x exclusion_list.txt\n"
+    printf "    GooFuzz -t site.com -k keys_file.txt -c P@ssw0rd!\n"
+    printf "    GooFuzz -t site.com -k keys_file.txt -e pdf -r http://proxy.example.com:8080\n"   
+    exit 0
 }
 
 ## Checking parameters
 function parametersCheck(){
-	if [[ ${OPTARG} =~ ^- ]]; then
-		showError
-	fi
+    if [[ ${OPTARG} =~ ^- ]]; then
+        showError
+    fi
 }
 
 ## Show Banner
 function showBanner(){
-	echo -e "*********************************************************
-* GooFuzz ${version} - The Power of Google Dorks		*
-*********************************************************"
+    printf "*********************************************************\n"
+    printf "* GooFuzz v.${version} - The Power of Google Dorks            *\n"
+    printf "*********************************************************\n"
 }
 
 ## Show Full Banner
 function showFullBanner(){
-	echo -e "*********************************************************
-* GooFuzz ${version} - The Power of Google Dorks		*
-*							*
-* David Utón (@David_Uton) 				*
-*********************************************************"
+    printf "*********************************************************\n"
+    printf "* GooFuzz v.${version} - The Power of Google Dorks            *\n"
+    printf "*                                                       *\n"
+    printf "* David Utón (@David_Uton)                              *\n"
+    printf "*********************************************************\n"
 }
 
 ## Show errors
 function showError(){
-	echo -e "\n${cBold}[!]${cNormal} Error, missing or invalid argument."
-	usage
+    echo -e "${colorBold}[!]${colorNormal} Error, missing or invalid argument."
+    usage
 }
 
 ## Show not found
 function notFound(){
-	
-	# Checking temporal ban from Google
-	checkBan
-		
-	if [ -n "$extension" ]; then
-		echo -e "\nSorry, no results found for ${cBold}${extension}${cNormal}."
+    local current_extension="$1"
 
-	elif [ -n "$dictionary" ]; then
-		echo -e "\nSorry, no results found."
-
-	elif [ -n "$subdomain" ]; then
-		echo -e "\nSorry, no subdomains found for ${cBold}${target}${cNormal}."
-
-	elif [ -n "$contents" ]; then
-		echo -e "\nSorry, no results found."
-	fi
+    if [ -n "$extension" ]; then
+        echo -e "\nSorry, no results found for extensions: ${colorBold}${current_extension}${colorNormal}.\n"
+    elif [ -n "$dictionary" ]; then
+        echo -e "\nSorry, no results found for dictionary: ${colorBold}${dictionary}${colorNormal}.\n"
+    elif [ -n "$subdomain" ]; then
+        echo -e "\nSorry, no subdomains found for ${colorBold}${target}${colorNormal}"
+    elif [ -n "$contents" ]; then
+        printf "\nSorry, no results found.\n"
+    fi
 }
 
 ## Show content in files
 function showContentInFile(){
-	if [ -n "$contents" ]; then
-		echo -e "Files found containing: ${cBold}${contents}${cNormal}"
-	fi
+    if [ -n "$contents" ]; then
+        echo -e "Files found containing: ${colorBold}${contents}${colorNormal}"
+    fi
 }
 
 ## Exit GooFuzz
 trap ctrl_c INT
 
 function ctrl_c(){
-	echo -e "\n${cBold}[!]${cNormal} Exiting GooFuzz..."
-	exit 1
+    echo -e "${colorBold}[!]${colorNormal} Exiting GooFuzz..."
+    exit 1
 }
 
-## Google ban check
-function checkBan(){
-	checkBanStatus=$(curl -s -A "$userAgent" "${url}site:${target}${filter}${start}${pageNum}")
+## API limit check
+function checkApiLimit(){
+    local hasError=$(echo "$apiResponse" | jq 'has("error")' 2>/dev/null)
 
-	if [[ ${checkBanStatus} =~ "The document has moved" ]]; then
-		echo -e "\n${cBold}[!]${cNormal} Oops... Looks like Google has temporarily blocked your IP address."
-		exit 1
-	fi
-}
+    if [ "$hasError" = "true" ]; then
+        errorMessage=$(echo "$apiResponse" | jq -r '.error.message // "Unknown error."')
+        errorReason=$(echo "$apiResponse" | jq -r '.error.errors[0].reason // ""')
 
-## URL Decode
-function urlDecode(){
-	sed 's/%3F/?/g;s/%3D/=/g;s/%20/ /g;s/%2520/ /g;s/%21/!/g;s/%23/#/g;s/%24/\$/g;s/%25/\&/g;s/%25/\&/g;s/%2B/+/g;s/%26/&/g'
+        if [[ "$errorMessage" == *"limitExceeded"* ]] || [[ "$errorReason" == *"dailyLimitExceeded"* ]]; then
+            echo -e "${colorBold}[!]${colorNormal} ERROR: Google API limit exceeded for current key."
+            if ! getNextKey; then
+                echo -e "${colorBold}[!]${colorNormal} ERROR: All API Keys in the list have been exhausted. Logging out."
+                exit 1
+            fi
+            return 1
+        elif [[ "$errorMessage" == *"Key"* ]] || [[ "$errorMessage" == *"Identity"* ]] || [[ "$errorMessage" == *"not used in project"* ]]; then
+            echo -e "${colorBold}[!]${colorNormal} ERROR: Invalid API key, CX ID, or API disabled. Trying next pair..."
+            if ! getNextKey; then
+                echo -e "${colorBold}[!]${colorNormal} ERROR: All API Keys have failed or are invalid. Logging out."
+                exit 1
+            fi
+            return 1
+        else
+            echo -e "${colorBold}[!]${colorNormal} API error: $errorMessage"
+            exit 1
+        fi
+    fi
+    return 0
 }
 
 ## Exclusions
 function exclusionsCheck(){
-	# Needs variables
-	excludeTargets="-site:"
+    excludeTargets=""
+    local multi=0
 
-	# Checking file exist
-	if [ -f "$exclusions" ]; then
-		for exclusion in $(cat "$exclusions"); do
-			if [[ $multi -eq 1 ]]; then
-				exclusion="+-${exclusion}"
-			fi
+    if [ -f "$exclusions" ]; then
+        for exclusion in $(cat "$exclusions"); do
+            excludeTargets+=" -site:${exclusion}"
+        done
 
-			excludeTargets="$excludeTargets${exclusion}"
-			multi=1 # On multi-liner
-		done
+    elif [[ "$exclusions" =~ "," ]]; then
+        local excludeTargetsList=$(echo "$exclusions" | tr ',' ' ')
 
-	elif [[ "$exclusions" =~ "," ]]; then
-		excludeTargetsList=$(echo "$exclusions" | sed 's/,/ /g')
+        local is_first=true
+        for exclusion in $excludeTargetsList; do
+            if [ "$is_first" = true ]; then
+                excludeTargets+="-site:${exclusion}"
+                is_first=false
+            else
+                excludeTargets+=" -site:${exclusion}"
+            fi
+        done
 
-		for exclusion in $excludeTargetsList; do
-			if [[ $multi -eq 1 ]]; then
-				exclusion="+-${exclusion}"
-			fi
-
-			excludeTargets="$excludeTargets${exclusion}"
-			multi=1 # On multi-liner
-		done
-			
-	else
-		excludeTargets="${excludeTargets}${exclusions}"
-	fi
+    else
+        excludeTargets=" -site:${exclusions}"
+    fi
 }
 
 ## Search the contents of files
 function contentsCheck(){
-	# Needs variables
-	inFile="infile:\""
-	
-	# Checking file exist
-	if [ -f "$contents" ]; then
-		for content in $(cat "$contents"); do
-			if [[ $multi -eq 1 ]]; then
-				content="+||+\"${content}\""
-			fi
+    inFile=""
+    local multi=0
 
-			inFile="$inFile${content}"
-			multi=1 # On multi-liner
-		done
-	elif [[ "$contents" =~ "," ]]; then
-		contentsList=$(echo "$contents" | sed 's/,/"+||+"/g')
-		inFile="$inFile${contentsList}\""
-	else 
-		inFile="$inFile${contents}\""
-	fi
+    if [ -f "$contents" ]; then
+        for content in $(cat "$contents"); do
+            if [[ $multi -eq 1 ]]; then
+                inFile+=" OR "
+            fi
+            inFile+="\"${content}\""
+            multi=1
+        done
+    elif [[ "$contents" =~ "," ]]; then
+        inFile=$(echo "$contents" | sed 's/,/" OR "/g' | sed 's/^/"/' | sed 's/$/"/')
+    else
+        inFile="\"${contents}\""
+    fi
 }
 
 ## Search words in URL
 function inurlCheck(){
+    inUrl=""
+    local multi=0
 
-	# Checking file exist
-	if [ -f "$dictionary" ]; then
-		for word in $(cat "$dictionary"); do
-			if [[ $multi -eq 1 ]]; then
-				word="+|+${word}"
-			fi
-
-			inUrl="$inUrl${word}"
-			multi=1 # On multi-liner
-		done
-	elif [[ "$dictionary" =~ "," ]]; then
-		dictionaryList=$(echo "$dictionary" | sed 's/,/+|+/g')
-		inUrl="$inUrl${dictionaryList}"
-	else 
-		inUrl="${dictionary}"
-	fi
+    if [ -f "$dictionary" ]; then
+        for word in $(cat "$dictionary"); do
+            if [[ $multi -eq 1 ]]; then
+                inUrl+=" OR "
+            fi
+            inUrl+="inurl:\"${word}\""
+            multi=1
+        done
+    elif [[ "$dictionary" =~ "," ]]; then
+        inUrl=$(echo "$dictionary" | sed 's/,/" OR "/g' | sed 's/^/inurl:"/' | sed 's/$/"/')
+    else
+        inUrl="inurl:\"${dictionary}\""
+    fi
 }
 
 ## Calculate sending requests
 function calcRequests(){
-	if [[ -z $pages ]] || [[ $pages -eq 0 ]]; then
-		return $totalRequests
-	else
-		let totalRequests=$totalRequests*$pages
-		return $totalRequests
-	fi
+    if [[ -z $pages ]] || [[ $pages -eq 0 ]]; then
+        return $totalRequests
+    else
+        let totalRequests=$totalRequests*$pages
+        return $totalRequests
+    fi
 }
 
 ## Delay Control
 function delayControl(){
-	# Checking
-	if [[ -n "$delay" ]]; then
-		sleep "$delay"s
-	else
-		sleep 0s
-	fi
+    if [[ -n "$delay" ]]; then
+        sleep "$delay"
+    fi
 }
 
 ## Request
 function requestRun(){
-	# Reset variables
-	requestStorage=""
-	page=0
-		
-	# Checking pages value
-	if [[ -z $pages ]] || [[ $pages -eq 0 ]]; then
-		pages=1
-	fi
-	
-	while [ $page -lt $pages ]; do
-		let pageNum=$page*10
+    # Reset variables
+    requestStorage=""
+    page=0
 
-		if [ -n "$extension" ]; then
-			request=$(curl -s -k -x "$proxy" -A "$userAgent" "${url}site:${target}+filetype:${extension}+${inFile}+${excludeTargets}${filter}${start}${pageNum}" | grep -Eo '(http|https)://[a-zA-Z0-9./?=_%:-]*' | grep -i "${target}" | grep -viE "google" | grep -i "${extension}" | urlDecode | sort -u)
+    pages=${pages:-1}
 
-		elif [ -n "$dictionary" ]; then
-			request=$(curl -s -k -x "$proxy" -A "$userAgent" "${url}site:${target}+${excludeTargets}+inurl:\"${inUrl}\"${filter}${start}${pageNum}" | grep -Eo '(http|https)://[a-zA-Z0-9./?=_%:-]*' | grep -i "${target}/" | grep -viE "google" | urlDecode | sort -u)
-		
-		elif [ -n "$subdomain" ]; then
-			request=$(curl -s -k -x "$proxy" -A "$userAgent" "${url}site:*.${target}+-site:www.${target}${filter}${start}${pageNum}" | grep -Eo "(http|https)://[a-zA-Z0-9./?=_%:-]*${target}" | grep -viE "google" | sort -u)
+    while [ $page -lt $pages ]; do
+        local keyRotated=false
 
-		elif [ -n "$contents" ]; then
-			request=$(curl -s -k -x "$proxy" -A "$userAgent" "${url}site:${target}+${inFile}+${excludeTargets}${filter}${start}${pageNum}" | grep -Eo '(http|https)://[a-zA-Z0-9./?=_%:-]*' | grep -i "${target}/" | grep -viE "google" | urlDecode | sort -u)
-		fi
+        while true; do
+            let pageNum=($page*10)+1
 
-		if [ -z "$request" ]; then
-			break
-		fi
-		
-		# Request storage
-		requestStorage+="
-$request"
-    		
-		# Pages Incremental
-		((page++))
+            local dorkQuery=""
+            local targetDork="site:${target}"
 
-		# Delay Control
-		delayControl
-	done
+            if [ -n "$optimizedDork" ]; then
+                dorkQuery="${targetDork}+${optimizedDork}"
 
+            elif [ -n "$extension" ]; then
+                dorkQuery="${targetDork}+filetype:${extension}"
+
+            elif [ -n "$dictionary" ]; then
+                dorkQuery="${targetDork}+inurl:\"${dictionary}\""
+
+            elif [ -n "$subdomain" ]; then
+                dorkQuery="site:*.${target}+-site:www.${target}"
+                targetDork=""
+
+            elif [ -n "$contents" ]; then
+                dorkQuery="${targetDork}+${inFile}"
+            fi
+
+            # Exclusions
+            if [ -n "$excludeTargets" ]; then
+                if [ -z "$subdomain" ]; then
+                    dorkQuery+="${excludeTargets}"
+                else
+                    dorkQuery+=" ${excludeTargets}"
+                fi
+            fi
+
+            queryCodificado=$(echo "$dorkQuery" | sed 's/ /+/g' | sed 's/:"/:"/g')
+
+            apiResponse=$(curl -s -k -x "$proxy" -A "$userAgent" \
+                                 "${url}?key=${apiKey}&cx=${cxId}&q=${queryCodificado}${start}${pageNum}")
+
+            # API check limit
+            if ! checkApiLimit; then
+                keyRotated=true
+                continue
+            fi
+            break
+        done
+
+        if [ "$keyRotated" = true ]; then
+            continue
+        fi
+
+        request=$(echo "$apiResponse" | jq -r '.items[] | .link' 2>/dev/null)
+
+        if [ -z "$request" ]; then
+            break
+        fi
+
+        # Request storage
+        if [ -z "$requestStorage" ]; then
+            requestStorage="$request"
+        else
+            requestStorage+="\n$request"
+        fi
+
+        # Pages Incremental
+        ((page++))
+
+        # Delay Control
+        delayControl
+    done
 }
 
 ## GooFuzz Dictionary Attack
 function dictionaryAttack(){
-	echo -e "\nTarget: ${cBold}${target}${cNormal}"
+    echo -e "\nTarget: ${colorBold}${target}${colorNormal}"
 
-	# Send request
-	requestRun
+    local dorkInput="$dictionary"
+    local wordsList=""
+    local numWords=0
+    local all_results=""
+    local is_file=false
 
-	# Show information
-	if [ -n "$requestStorage" ]; then
-		echo -e "\n==================================================================="
-		echo -e "Directories and files found from: ${cBold}${dictionary}${cNormal}"
-		echo -e "==================================================================="
-		echo "$requestStorage" | sort -u
+    if [ -f "$dorkInput" ]; then
+        is_file=true
+        wordsList=$(cat "$dorkInput" | tr '\n' ' ')
 
-		# Output file
-		if [ -n "$outputFile" ]; then
-			outputFile "$requestStorage" "$outputFile"
-		fi
-	else
-		notFound
-	fi
+    elif [[ "$dorkInput" =~ "," ]]; then
+        wordsList=$(echo "$dorkInput" | tr ',' ' ')
+    else
+        requestRun
+        if [ -n "$requestStorage" ]; then
+            printf "\n===================================================================\n"
+            echo -e "Directories and files found from: ${colorBold}${dictionary}${colorNormal}"
+            printf "===================================================================\n"
+            echo -e "$requestStorage" | sort -u
+        else
+            notFound
+        fi
+        exit 1
+    fi
+
+    for word in $wordsList; do
+        ((numWords++))
+    done
+
+    if [ "$is_file" = true ] || [ $numWords -gt 5 ]; then
+        for word in $wordsList; do
+            dictionary="$word"
+
+            # Send request
+            requestRun
+
+            if [ -n "$requestStorage" ]; then
+                printf "\n===================================================================\n"
+                echo -e "Dork: inurl:\"${colorBold}${word}${colorNormal}\""
+                printf "===================================================================\n"
+                echo -e "$requestStorage" | sort -u
+
+                if [ -n "$all_results" ]; then all_results+="\n"; fi
+                all_results+="$requestStorage"
+
+                if [ -n "$outputFile" ]; then
+                    echo -e "\nDork: inurl:\"$word\"" >> "$outputFile"
+                    echo "-------------------------------------------------------------------" >> "$outputFile"
+                    echo -e "$requestStorage" | sort -u >> "$outputFile"
+                fi
+            fi
+
+            dictionary="$dorkInput"
+        done
+
+    else
+        # Consolidated mode
+        local dork_parts=""
+        local is_first=true
+
+        for word in $wordsList; do
+            if [ "$is_first" = false ]; then
+                dork_parts+=" OR "
+            fi
+            dork_parts+="inurl:\"${word}\""
+            is_first=false
+        done
+
+        optimizedDork="$dork_parts"
+        requestRun
+
+        if [ -n "$requestStorage" ]; then
+            printf "\n===================================================================\n"
+            echo -e "Directories and files found: ${colorBold}${dorkInput}${colorNormal}"
+            printf "===================================================================\n"
+            echo -e "$requestStorage" | sort -u
+            all_results="$requestStorage"
+        fi
+    fi
+
+    if [ -z "$all_results" ]; then
+        notFound "$dorkInput"
+    fi
+
+    exit 1
 }
 
 ## GooFuzz Extension Attack
 function extensionAttack(){
-	echo -e "\nTarget: ${cBold}${target}${cNormal}"
+    echo -e "\nTarget: ${colorBold}${target}${colorNormal}"
 
-	# Checking file exist
-	if [ -f "$extension" ]; then
-	
-		# Count lines
-		totalRequests=$(wc -l "${extension}" | awk '{printf $1}')
-				
-		# Calculate
-		calcRequests
-		
-		echo -e "Total requests: ${totalRequests}"
-		
-		for extension in $(cat "$extension"); do
-			# Send request
-			requestRun
-			
-			# Show information
-			if [ -n "$requestStorage" ]; then
-				echo -e "\n==================================================================="
-				echo -e "Extension: ${cBold}${extension}${cNormal}"
-				showContentInFile
-				echo -e "==================================================================="
-				echo "$requestStorage"
+    local dorkInput="$extension"
+    local extensionsList=""
+    local numExt=0
+    local all_results=""
+    local is_file=false
 
-				# Output file
-				if [ -n "$outputFile" ]; then
-					outputFile "$requestStorage" "$outputFile"
-				fi
-			else
-				notFound
-			fi
-		done
-		
-		# Close script
-		exit 1
-	
-	# Checking various extensions
-	elif [[ "$extension" =~ "," ]]; then
-		extensionsList=$(echo "$extension" | sed 's/,/ /g')
-		
-		for extension in $extensionsList; do
-			# Send request
-			requestRun
-			
-			# Show information
-			if [ -n "$requestStorage" ]; then
-				echo -e "\n==================================================================="
-				echo -e "Extension: ${cBold}${extension}${cNormal}"
-				showContentInFile
-				echo -e "==================================================================="
-				echo "$requestStorage"
+    if [ -f "$dorkInput" ]; then
+        is_file=true
+        extensionsList=$(cat "$dorkInput" | tr '\n' ' ')
 
-				# Output file
-				if [ -n "$outputFile" ]; then
-					outputFile "$requestStorage" "$outputFile"
-				fi
-			else
-				notFound
-			fi
-		done
-		
-		# Close script
-		exit 1
-	
-	else
-	
-		# Send request
-		requestRun
+    elif [[ "$dorkInput" =~ "," ]]; then
+        extensionsList=$(echo "$dorkInput" | tr ',' ' ')
+    else
+        # Send request
+        requestRun
+        if [ -n "$requestStorage" ]; then
+            printf "\n===================================================================\n"
+            echo -e "Extension: ${colorBold}${extension}${colorNormal}"
+            showContentInFile
+            printf "===================================================================\n"
+            echo -e "$requestStorage" | sort -u
+        else
+            notFound
+        fi
+        exit 1
+    fi
 
-		# Show information
-		if [ -n "$requestStorage" ]; then
-			echo -e "\n==================================================================="
-			echo -e "Extension: ${cBold}${extension}${cNormal}"
-			showContentInFile
-			echo -e "==================================================================="
-			echo "$requestStorage"
+    for ext in $extensionsList; do
+        ((numExt++))
+    done
 
-			# Output file
-			if [ -n "$outputFile" ]; then
-				outputFile "$requestStorage" "$outputFile"
-			fi
-		else
-			notFound
-		fi
-	fi
+    if [ "$is_file" = true ] || [ $numExt -gt 5 ]; then
+        for ext in $extensionsList; do
+            extension="$ext"
+
+            # Send request
+            requestRun
+
+            if [ -n "$requestStorage" ]; then
+                printf "\n===================================================================\n"
+                echo -e "Extension: ${colorBold}${ext}${colorNormal}"
+                showContentInFile
+                printf "===================================================================\n"
+                echo -e "$requestStorage" | sort -u
+
+                if [ -n "$all_results" ]; then all_results+="\n"; fi
+                all_results+="$requestStorage"
+
+                if [ -n "$outputFile" ]; then
+                    echo -e "\nExtension: $ext" >> "$outputFile"
+                    echo "-------------------------------------------------------------------" >> "$outputFile"
+                    echo -e "$requestStorage" | sort -u >> "$outputFile"
+                fi
+            fi
+
+            extension="$dorkInput"
+        done
+
+    else
+        # Consolidate mode
+        local dork_parts=""
+        local is_first=true
+
+        for ext in $extensionsList; do
+            if [ "$is_first" = false ]; then
+                dork_parts+=" OR "
+            fi
+            dork_parts+="filetype:${ext}"
+            is_first=false
+        done
+
+        optimizedDork="$dork_parts"
+        requestRun
+
+        if [ -n "$requestStorage" ]; then
+            printf "\n===================================================================\n"
+            echo -e "Extensions: ${colorBold}${dorkInput}${colorNormal}"
+            showContentInFile
+            printf "===================================================================\n"
+            echo -e "$requestStorage" | sort -u
+            all_results="$requestStorage"
+        fi
+    fi
+
+    if [ -z "$all_results" ]; then
+        notFound "$dorkInput"
+    fi
+
+    exit 1
 }
+
 
 ## GooFuzz Subdomains Attack
 function subdomainAttack(){
-	echo -e "\nTarget: ${cBold}${target}${cNormal}"
+    echo -e "\nTarget: ${colorBold}${target}${colorNormal}"
 
-	# Send request
-	requestRun
+    # Send request
+    requestRun
 
-	# Show information
-	if [ -n "$requestStorage" ]; then
-		echo -e "\n==================================================================="
-		echo -e "Subdomains found:"
-		echo -e "==================================================================="
-		echo "$requestStorage" | sort -u
+    if [ -n "$requestStorage" ]; then
 
-		# Output file
-		if [ -n "$outputFile" ]; then
-			outputFile "$requestStorage" "$outputFile"
-		fi
-	else
-		notFound
-	fi
+        local subdomains=$(echo -e "$requestStorage" | \
+                                 sed -E 's/https?:\/\///' | \
+                                 sed -E 's/\/.*$//' | \
+                                 sort -u)
+
+        printf "\n===================================================================\n"
+        printf "Subdomains found:\n"
+        printf "===================================================================\n"
+        echo "$subdomains"
+
+        if [ -n "$outputFile" ]; then
+            echo -e "\nSubdomains found for: $target" >> "$outputFile"
+            echo "-------------------------------------------------------------------" >> "$outputFile"
+            echo "$subdomains" >> "$outputFile"
+        fi
+    else
+        notFound
+    fi
+    exit 1
 }
 
 ## GooFuzz Contents Attack
 function contentsAttack(){
-	echo -e "\nTarget: ${cBold}${target}${cNormal}"
+    echo -e "\nTarget: ${colorBold}${target}${colorNormal}"
 
-	# Send request
-	requestRun
+    # Send request
+    requestRun
 
-	# Show information
-	if [ -n "$requestStorage" ]; then
-		echo -e "\n==================================================================="
-		echo -e "Files found containing: ${contents}"
-		echo -e "==================================================================="
-		echo "$requestStorage" | sort -u
+    if [ -n "$requestStorage" ]; then
+        printf "\n===================================================================\n"
+        echo -e "Files found containing: ${colorBold}${contents}${colorNormal}"
+        printf "===================================================================\n"
+        echo -e "$requestStorage" | sort -u
 
-		# Output file
-		if [ -n "$outputFile" ]; then
-			outputFile "$requestStorage" "$outputFile"
-		fi
-	else
-		notFound
-	fi
-}
-
-## Output
-function outputFile() {
-	echo "$requestStorage" >> $outputFile
+        if [ -n "$outputFile" ]; then
+            echo -e "\nFiles found containing: $contents" >> "$outputFile"
+            echo "-------------------------------------------------------------------" >> "$outputFile"
+            echo -e "$requestStorage" | sort -u >> "$outputFile"
+        fi
+    else
+        notFound
+    fi
 }
 
 # Script execute
+checkDependencies
 
 ## Options
-
-while getopts :p:x:c:d:w:e:o:t:r:sh option; do
-	case ${option} in
-		h)
-			showFullBanner
-			usage
-			break
-			exit 1
-		;;
-		p)
-			parametersCheck
-			pages=${OPTARG}
-		;;
-		x)
-			parametersCheck
-			exclusions=${OPTARG}
-			exclusionsCheck
-		;;
-		c)
-			parametersCheck
-			contents=${OPTARG}
-			contentsCheck
-		;;
-		d)
-			parametersCheck
-			delay=${OPTARG}
-		;;
-		w)
-			parametersCheck
-			dictionary=${OPTARG}
-			inurlCheck
-		;;
-		e)
-			parametersCheck
-			extension=${OPTARG}
-		;;
-		o)
-			parametersCheck
-			outputFile=${OPTARG}
-		;;
-		t)
-			parametersCheck
-			target=${OPTARG}
-		;;
-		s)
-			parametersCheck
-			subdomain=on
-		;;
-		r)
-			parametersCheck
-			proxy=${OPTARG}
-		;;
-		*)
-			showFullBanner
-			showError
-		;;
-	esac
+while getopts :k:p:x:c:d:w:e:o:t:r:sh option; do
+    case ${option} in
+        h)
+            showFullBanner
+            usage
+            break
+            exit 1
+        ;;
+        k)
+            parametersCheck
+            keylistInput=${OPTARG}
+        ;;
+        p)
+            parametersCheck
+            pages=${OPTARG}
+        ;;
+        x)
+            parametersCheck
+            exclusions=${OPTARG}
+            exclusionsCheck
+        ;;
+        c)
+            parametersCheck
+            contents=${OPTARG}
+            contentsCheck
+        ;;
+        d)
+            parametersCheck
+            delay=${OPTARG}
+        ;;
+        w)
+            parametersCheck
+            dictionary=${OPTARG}
+        ;;
+        e)
+            parametersCheck
+            extension=${OPTARG}
+        ;;
+        o)
+            parametersCheck
+            outputFile=${OPTARG}
+        ;;
+        t)
+            parametersCheck
+            target=${OPTARG}
+        ;;
+        s)
+            parametersCheck
+            subdomain=on
+        ;;
+        r)
+            parametersCheck
+            proxy=${OPTARG}
+        ;;
+        *)
+            showFullBanner
+            showError
+        ;;
+    esac
 done
+
+## API Keys Check
+if [ -z "$keylistInput" ]; then
+    echo -e "${colorBold}[!]${colorNormal} Error: A file with CX ID and API Key pairs is required. Use the -k option."
+    usage
+fi
+
+loadKeys "$keylistInput"
 
 ## Continue
 showBanner
 
-if [ -n "$target" ] && [ -n "$dictionary" ] && [ -z "$subdomain" ] && [ -z "$extension" ] && [ -z "$contents"]; then
-	dictionaryAttack
-	exit 1
-	
-elif [ -n "$target" ] && [ -n "$extension" ] && [ -z "$subdomain" ] && [ -z "$dictionary" ]; then
-	extensionAttack
-	exit 1
+if [ -n "$target" ] && [ -n "$dictionary" ] && [ -z "$subdomain" ] && [ -z "$extension" ] && [ -z "$contents" ]; then
+    dictionaryAttack
 
-elif [ -n "$target" ] && [ -n "$subdomain" ] && [ -z "$extension" ] && [ -z "$dictionary" ] &&  [ -z "$contents" ]; then
-	subdomainAttack
-	exit 1
+elif [ -n "$target" ] && [ -n "$extension" ] && [ -z "$subdomain" ] && [ -z "$dictionary" ]; then
+    extensionAttack
+
+elif [ -n "$target" ] && [ -n "$subdomain" ] && [ -z "$extension" ] && [ -z "$dictionary" ] && [ -z "$contents" ]; then
+    subdomainAttack
+
 elif [ -n "$target" ] && [ -n "$contents" ] && [ -z "$subdomain" ] && [ -z "$dictionary" ]; then
-	contentsAttack
-	exit 1
+    contentsAttack
+    exit 1
 else
-	showError
+    showError
 fi
