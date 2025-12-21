@@ -4,7 +4,7 @@
 url="https://www.googleapis.com/customsearch/v1"
 start="&start="
 userAgent="GooFuzz/$version"
-version="2.00"
+version="2.0"
 
 ## Used to store the dork
 optimizedDork=""
@@ -123,14 +123,14 @@ function parametersCheck(){
 ## Show Banner
 function showBanner(){
     printf "*********************************************************\n"
-    printf "* GooFuzz v.${version} - The Power of Google Dorks            *\n"
+    printf "* GooFuzz v.${version} - The Power of Google Dorks             *\n"
     printf "*********************************************************\n"
 }
 
 ## Show Full Banner
 function showFullBanner(){
     printf "*********************************************************\n"
-    printf "* GooFuzz v.${version} - The Power of Google Dorks            *\n"
+    printf "* GooFuzz v.${version} - The Power of Google Dorks             *\n"
     printf "*                                                       *\n"
     printf "* David Utón (@David_Uton)                              *\n"
     printf "*********************************************************\n"

@@ -82,7 +82,7 @@ docker run --rm -it goofuzz -h
 ```console
 > ./GooFuzz -h
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *                                                       *
 * David Utón (@David_Uton)                              *
 *********************************************************
@@ -117,7 +117,7 @@ Examples:
 > ./GooFuzz -t nasa.gov -e pdf,doc,docx,txt,xls,zip -p 3 -k apikey.lst -o extensions.txt
 
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: nasa.gov
@@ -191,7 +191,7 @@ https://carbon.nasa.gov/files/tempfiles/cms_short_products_excel.xls
 > ./GooFuzz -t nasa.gov -e wordlists/extensions.txt -k apikey.lst -o extensions.txt
 
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: nasa.gov
@@ -256,7 +256,7 @@ https://www.nasa.gov/382774main_081209_DC_Transcript.txt
 > ./GooFuzz -t nasa.gov -e wordlists/words-100.txt -k apikey.lst -p 1
 
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: nasa.gov
@@ -304,7 +304,7 @@ https://uavsar.jpl.nasa.gov/cgi-bin/data.pl?search=9G023
 ```console
 > ./GooFuzz -t nasa.gov -w adm,/login/,password,db.html -p 3 -k apikey.lst 
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: nasa.gov
@@ -350,7 +350,7 @@ In this example we remove the subdomain "*www.earthdata.nasa.gov*" from the sear
 ```console
 > ./GooFuzz -t nasa.gov -w login -p 1 -k apikey.lst 
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: nasa.gov
@@ -369,7 +369,7 @@ https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-deve
 https://www.jpl.nasa.gov/site/NSET/accounts/login/                                                                                                                                         
 > ./GooFuzz -t nasa.gov -w login -p 1 -x www.earthdata.nasa.gov -k apikey.lst 
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: nasa.gov
@@ -399,7 +399,7 @@ software.nasa.gov
                                                                                                                                     
 > ./GooFuzz -t nasa.gov -w login -p 1 -x exclusion-list.txt -k apikey.lst 
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: nasa.gov
@@ -427,7 +427,7 @@ The functionality to list subdomains (parameter "*-s*") and in conjunction with 
 ```console
 > ./GooFuzz -t nasa.gov -s -p 10 -k apikey.lst 
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: nasa.gov
@@ -476,7 +476,7 @@ The functionality to list files by their content (parameter "*-c*"), is very use
 ```console
 > ./GooFuzz -t nasa.gov -c password -k apikey.lst
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: nasa.gov
@@ -516,7 +516,7 @@ Or even, search for a possible password in a pdf file:
 ```console
 > ./GooFuzz -t .com -c changeme -e pdf
 *********************************************************
-* GooFuzz v.2.00 - The Power of Google Dorks            *
+* GooFuzz v.2.0 - The Power of Google Dorks             *
 *********************************************************
 
 Target: .com
